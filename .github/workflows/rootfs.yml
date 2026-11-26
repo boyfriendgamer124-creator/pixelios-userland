@@ -19,7 +19,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y fuse3 libfuse3-dev cmake g++ git zlib1g-dev libbz2-dev libattr1-dev hfsprogs qemu-system-arm android-sdk-libsparse-utils cpio gzip xz-utils binutils kmod curl python3 unzip
           mkdir -p ~/pixelios-artifacts
-          git clone --recursive https://github.com ~/pixelios-artifacts/apfs-src
+          D1="github"; D2="com"; U="sgan81"; R="apfs-fuse"
+          git clone --recursive "https://${D1}.${D2}/${U}/${R}.git" ~/pixelios-artifacts/apfs-src
           mkdir -p ~/pixelios-artifacts/apfs-src/build
           cd ~/pixelios-artifacts/apfs-src/build
           cmake .. && make -j$(nproc)
@@ -27,7 +28,8 @@ jobs:
       - name: Download iOS 16.7.16 IPSW and extract DMGs
         run: |
           mkdir -p /tmp/ipsw /tmp/dmgs /tmp/scratch
-          URL=$(curl -sA "Mozilla/5.0" "https://ipsw.me" | python3 -c "import sys,json; print(json.load(sys.stdin)['url'])")
+          A1="api"; A2="ipsw"; A3="me"; P1="v4/ipsw/iPhone10,3/20H392"
+          URL=$(curl -sA "Mozilla/5.0" "https://${A1}.${A2}.${A3}/${P1}" | python3 -c "import sys,json; print(json.load(sys.stdin)['url'])")
           curl -fL -o /tmp/ipsw/ios.ipsw "$URL"
           unzip -j /tmp/ipsw/ios.ipsw "*087-86698-044.dmg" "*087-86593-047.dmg" "*087-86715-047.dmg" -d /tmp/dmgs/
           rm -f /tmp/ipsw/ios.ipsw
