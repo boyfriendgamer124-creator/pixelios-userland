@@ -1,1 +1,47 @@
+name: build-ios-rootfs
 
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/rootfs.yml"
+
+jobs:
+  rootfs:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install tools and build apfs-fuse
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y fuse3 libfuse3-dev cmake g++ git zlib1g-dev libbz2-dev libattr1-dev hfsprogs qemu-system-arm android-sdk-libsparse-utils cpio gzip xz-utils binutils kmod curl python3 unzip
+          mkdir -p ~/pixelios-artifacts
+          git clone --recursive https://github.com ~/pixelios-artifacts/apfs-src
+          mkdir -p ~/pixelios-artifacts/apfs-src/build
+          cd ~/pixelios-artifacts/apfs-src/build
+          cmake .. && make -j$(nproc)
+
+      - name: Download iOS 16.7.16 IPSW and extract DMGs
+        run: |
+          mkdir -p /tmp/ipsw /tmp/dmgs /tmp/scratch
+          URL=$(curl -sA "Mozilla/5.0" "https://ipsw.me" | python3 -c "import sys,json; print(json.load(sys.stdin)['url'])")
+          curl -fL -o /tmp/ipsw/ios.ipsw "$URL"
+          unzip -j /tmp/ipsw/ios.ipsw "*087-86698-044.dmg" "*087-86593-047.dmg" "*087-86715-047.dmg" -d /tmp/dmgs/
+          rm -f /tmp/ipsw/ios.ipsw
+
+      - name: Build and compress 12G iOS rootfs
+        run: |
+          ROOTLESS_STREAMS=4 ROOTLESS_SCRATCH=/tmp/scratch IOS_ROOT_SIZE=12G ./tools/build-ios-root-rootless.sh /tmp/dmgs /tmp/ios-root.img
+          rm -rf /tmp/dmgs /tmp/scratch
+          mkdir -p out
+          img2simg /tmp/ios-root.img out/ios-root.simg
+          rm -f /tmp/ios-root.img
+          ls -lh out/ios-root.simg
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ios-root
+          path: out/ios-root.simg
